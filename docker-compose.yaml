@@ -1,0 +1,61 @@
+version: '3.4'
+services:
+  ontop:
+    image: ontop/ontop-endpoint:4.2.0
+    container_name: ontop
+    restart: unless-stopped
+    environment:
+      ONTOP_ONTOLOGY_FILE: /opt/ontop/input/ecise.owl
+      ONTOP_MAPPING_FILE: /opt/ontop/input/ecise.obda
+      ONTOP_PROPERTIES_FILE: /opt/ontop/input/ecise.properties
+      ONTOP_PORTAL_FILE: /opt/ontop/input/ecise.toml
+      ONTOP_CORS_ALLOWED_ORIGINS: '*'
+      ONTOP_DEV_MODE: '${ONTOP_DEV_MODE}'
+    ports:
+      - '${ONTOP_PORT}:${ONTOP_PORT}'
+    volumes:
+      - ./obda:/opt/ontop/input
+      - ./jdbc:/opt/ontop/jdbc
+    depends_on:
+      - "pgsql"
+    entrypoint: [ 
+        "/opt/ontop/input/wait-for-it.sh",
+        "pgsql:5432",
+        "--timeout=0",
+        "--strict", 
+        "--", 
+        "/opt/ontop/entrypoint.sh" ]
+
+  pgsql:
+    image: postgres:14.2
+    container_name: pgsql
+    ports:
+      - '${POSTGRES_PORT}:${POSTGRES_PORT}'
+    volumes:
+      - ./data/pgsql:/docker-entrypoint-initdb.d
+      - data-pgsql:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: '${POSTGRES_DB}'
+      POSTGRES_USER: '${POSTGRES_USER}'
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD}'
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: '${PGADMIN_EMAIL}'
+      PGADMIN_DEFAULT_PASSWORD: '${PGADMIN_PASSWORD}'
+      PG_DATABASE: '${POSTGRES_DB}'
+      PG_USER: '${POSTGRES_USER}'
+      PG_PASSWORD: '${POSTGRES_PASSWORD}'
+    volumes:
+        - ./pgadmin/pgadmin:/root/.pgadmin
+    ports:
+      - '${PGADMIN_PORT}:80'
+    links:
+      - pgsql:postgres
+
+volumes:
+  data-pgsql:
+      name: location-data-pgsql
